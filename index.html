@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>one-last</title>
+        <link rel='stylesheet', href='//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css' >
+        <!--<link rel='stylesheet' href='//fonts.googleapis.com/css?family=Open+Sans:400italic,700italic,400,700'>--
+        <link rel='stylesheet' href='/bitbucket/backend.php/demo/ui/style/style.css'>
+        <style>
+        body, input { font-family: 'Open Sans', sans-serif; }
+        </style>-->
+        <style type="text/css">
+            .round {
+                border-radius: 1em;
+                -moz-border-radius: 1em;
+                -webkit-border-radius: 1em;
+                width: 2em;
+            }
+            .status {
+                margin: 35px 0;
+            }
+        </style>
+        <script type='text/javascript' src='//code.jquery.com/jquery-1.10.2.min.js'></script>
+        <script type='text/javascript' src='//netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js'></script>
+        <script type='text/javascript' src='//connect.facebook.net/en_US/all.js'></script>
+        <!--<script type='text/javascript' src='/bitbucket/backend.php/demo/ui/advanced.js/advanced.js'>
+        </script>
+        <script type='text/javascript' src='/bitbucket/backend.php/demo/ui/script/script.js'>
+        </script>-->
+    </head>
+    <body style="padding: 0 25px; margin-left: 85px;">
+        <div id="fb-root"></div>
+        <h1><a href="/bitbucket/one-last/index.html" style="color: black"><strong>one-last</strong></a><div class="pull-right text-right"><fb:login-button autologoutlink="true" show-faces="true" width="200" max-rows="1" perms="email,read_stream,user_about_me,user_friends,friends_photos"></fb:login-button></div></h1>
+
+        <div style="width: 600px; margin-top: 25px;">
+            <ul class="nav nav-tabs" style="margin-bottom: 25px;">
+                <li class="active" id="view-status"><a href="#" onclick="$('#view-photo').removeClass('active');$('#view-status').addClass('active'); UI.render('posts'); return false;">Status</a></li>
+                <li id="view-photo"><a href="#" onclick="$('#view-status').removeClass('active');$('#view-photo').addClass('active'); UI.render('photos'); return false;">Photos</a></li>
+            </ul>
+
+            <div id="main-ui"></div>
+        </div>
+    </body>
+
+    <script type="text/javascript">
+        $( document ).ready(function(){
+
+            UI = {
+                canvas: $( '#main-ui' ),
+                friends: {},
+                queue: [],
+                done: 0,
+                processing: false,
+
+                query: {
+                    stream: 'select description, message, type, source_id, post_id, action_links from stream where source_id in (select uid2 from friend where uid1=me()) order by created_time desc limit 150',
+                    status: 'select message, status_id, uid from status where uid in (select uid2 from friend where uid1=me()) order by time desc limit 150',
+                    photo: 'select object_id, caption, link, src, owner from photo where owner in (select uid2 from friend where uid1=me()) order by created desc limit 150',
+                    link: 'select link_id, url, title, summary, owner from link where owner in (select uid2 from friend where uid1=me()) order by created_time desc limit 150',
+                    video: 'select vid, description, embed_html, link, title, owner from video where owner in (select uid2 from friend where uid1=me()) order by created_time desc limit 150'
+                },
+
+                process: function(next){
+                    var that = this;
+                    if(this.queue.length && this.done){
+                        next(this.queue.pop(), function(){
+                            that.done--;
+                            that.process(next);
+                        });
+                    }
+                    else if(this.queue.length) {
+                        that.processing = false;
+                        that.scroll(function(){
+                            that.done = 15;
+                            that.process(next);
+                        });
+                    }
+                    else {
+                        that.processing = false;
+                        that.scroll();
+                    }
+                },
+
+                clean: function(){
+                    this.friends = {};
+                    this.queue = [];
+                    this.done = 0;
+                    this.processing = false;
+                    this.canvas.html('');
+                },
+
+                render: function(type){
+                    var type = type || 'posts';
+                    var that = this;
+                    that.clean();
+
+                    that.canvas.html('Getting Friends ...');
+                    FB.api({
+                        method: 'fql.query',
+                        query: 'select uid, username, name, status from user where uid in (select uid2 from friend where uid1=me()) order by profile_update_time desc'
+                    }, function(response) {
+                        for( var i in response ){
+                            that.friends[ response[i].uid ] = response[i];
+                            that.queue.push(response[i]);
+                        }
+                        that.queue.reverse();
+                        if(type == 'posts'){
+                            that.posts(that.canvas);    
+                        }
+                        else if(type == 'photos'){
+                            that.photos(that.canvas);
+                        }
+                    });
+                },
+
+                scroll: function(callback){
+                    var that = this;
+                    jQuery( document ).unbind( 'scroll' );
+                    
+                    if( callback ){
+                        jQuery( document ).bind( 'scroll', function( e ){
+                            if ( that.processing || false )
+                                return false;
+
+                            if ( $( window ).scrollTop() >= $( document ).height() - $( window ).height() - 500 ){
+                                that.processing = true;
+                                callback();
+                            }
+                        } );    
+                    }
+                },
+
+                photos: function(canvas){
+                    var that = this;
+                    that.scroll();
+                    //canvas.html('Getting Posts ...');
+                    canvas.html('');
+
+                    that.done = 15;
+                    that.process(function(obj, done){
+                        FB.api('/'+obj.uid+'/photos?limit=1', function(response){
+                            console.log(response.data);
+                            var photo = response.data[0];
+                            if(photo && photo.source){
+                                canvas.append('<div class="status" id="photo-'+photo.id+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+obj.uid+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+obj.username+'/" target="_blank"><strong>'+obj.name+'</strong></a><div style="margin-bottom: 8px;"><img src="'+photo.source+'" style="max-width: 100%; max-height: 25em;"/></div>'+((photo.name && photo.name.length < 250) ? '<div style="margin-bottom: 8px;">'+photo.name+'</div>' : '')+'</div><div style="clear: both;"></div></div>');
+                                
+                            }
+                            done();
+                        });
+                    });
+
+                    /*FB.api({
+                        method: 'fql.query',
+                        query: that.query.photo
+                    }, function(response){
+                        console.log(response);
+                        canvas.html('');
+
+                        for(var i in response){
+                            var status = response[i];
+                            var f=that.friends[status.owner];
+                            if(!(status.owner in that.done) && status.src){
+                                that.done[status.owner] = 1;
+                                canvas.append('<div class="status" id="photo-'+status.object_id+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.owner+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+f.username+'/"><strong>'+f.name+'</strong></a><div style="margin-bottom: 8px;"><img src="//graph.facebook.com/'+status.object_id+'/picture" style="max-width: 100%; max-height: 25em;"/></div></div><div style="clear: both;"></div></div>');
+                                //console.log(that.friends[status.uid].name, status.message);   
+                            }
+                        }
+                    });*/
+                },
+
+                posts: function(canvas){
+                    var that = this;
+                    that.scroll();
+                    //canvas.html('Getting Posts ...');
+                    canvas.html('');
+
+                    that.done = 15;
+                    that.process(function(obj, done){
+                        FB.api('/'+obj.uid+'/statuses?limit=1', function(response){
+                            console.log(response.data);
+                            var status = response.data[0];
+                            if(status && status.message && status.message.length < 250){
+                                canvas.append('<div class="status" id="status-'+obj.uid+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+obj.uid+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+obj.username+'/" target="_blank"><strong>'+obj.name+'</strong></a><div style="margin-bottom: 8px;">'+status.message.replace( /\n/g, '<br />')+'</div></div><div style="clear: both;"></div></div>');
+                                
+                            }
+                            done();
+                        });
+                    });
+
+                    /*FB.api({
+                        method: 'fql.query',
+                        query: that.query.status
+                    }, function(response){
+                        console.log(response);
+                        canvas.html('');
+                        
+                        for(var i in response){
+                            var status = response[i];
+                            if( !(status.uid in that.done) && status.message && status.message.length < 250 ){
+                                var f=that.friends[status.uid];
+                                that.done[status.uid] = 1;
+                                canvas.append('<div class="status" id="status-'+status.uid+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.uid+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+f.username+'/"><strong>'+f.name+'</strong></a><div style="margin-bottom: 8px;">'+status.message.replace( /\n/g, '<br />')+'</div></div><div style="clear: both;"></div></div>');
+                                //console.log(that.friends[status.uid].name, status.message);
+                            }
+                        }
+                    });*/
+                }
+
+
+            }
+
+            // init the FB JS SDK
+            FB.init({
+                appId      : '289641444493947',
+                status     : true,
+                xfbml      : true
+            });
+
+            FB.Event.subscribe('auth.authResponseChange', function(response) {
+                if (response.status === 'connected') {
+                    testAPI(response);
+                    UI.render();
+                //} else if (response.status === 'not_authorized') {
+                //    FB.login(function(){}, {scope: 'email, user_about_me, user_friends'});
+                // FB.api({ method: 'Auth.revokeAuthorization' }
+                } else {
+                    UI.clean();
+                    //FB.login(cb, {scope: 'email,read_stream,user_about_me,user_friends'});
+                }
+            });
+
+            function testAPI(response) {
+                if (response.authResponse) {
+                    var access_token =   FB.getAuthResponse()['accessToken'];
+                    console.log('Access Token = '+ access_token);
+                    FB.api('/me', function(response) {
+                        console.log('Good to see you, ' + response.name + '.');
+                    });
+                } else {
+                    console.log('User cancelled login or did not fully authorize.');
+                }
+            }
+        });
+    </script>
+</html>
