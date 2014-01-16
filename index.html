@@ -33,20 +33,26 @@
         <script type="text/javascript" src="//timeago.yarp.com/jquery.timeago.js"></script>
     </head>
 
-    <body style="padding: 0 25px; margin-left: 85px;">
-        <div id="fb-root"></div>
-        <h1><a href="/bitbucket/one-last/index.html" style="color: black"><strong>one-last</strong></a><div class="pull-right text-right"><fb:login-button autologoutlink="true" show-faces="true" width="200" max-rows="1" perms="email,read_stream,user_about_me,user_friends,user_likes,friends_status,friends_photos"></fb:login-button></div></h1>
-
-        <div style="width: 600px; margin-top: 25px;">
-            <ul class="nav nav-tabs" style="margin-bottom: 25px;">
-                <li class="menu active" id="view-status"><a href="#" onclick="$('.menu').removeClass('active');$('#view-status').addClass('active'); UI.render('posts'); return false;">Status</a></li>
-                <li class="menu" id="view-photo"><a href="#" onclick="$('.menu').removeClass('active');$('#view-photo').addClass('active'); UI.render('photos'); return false;">Photos</a></li>
-                <li class="menu" id="view-pages"><a href="#" onclick="$('.menu').removeClass('active');$('#view-pages').addClass('active'); UI.render('pages'); return false;">Pages</a></li>
-            </ul>
-
-            <div id="main-ui"></div>
-            <div id="signal-ui" style="padding: 1em 4.5em;"></div>
+    <body style="min-width: 960px">
+        <div class="pull-right" style="width: 250px; margin-top: 25px;">
+            <div><fb:login-button autologoutlink="true" show-faces="true" width="200" max-rows="1" perms="email,read_stream,user_about_me,user_friends,user_likes,friends_status,friends_photos"></fb:login-button></div>
         </div>
+        <div class="pull-left" style="margin-left: 8%; min-width: 600px;">
+            <div id="fb-root"></div>
+            <h1><a href="" style="color: black"><strong>one-last</strong></a></h1>
+
+            <div style="width: 600px; margin-top: 25px;">
+                <ul class="nav nav-tabs" style="margin-bottom: 25px;">
+                    <li class="menu" id="view-pages"><a href="#" onclick="UI.render('pages'); return false;">Pages</a></li>
+                    <li class="menu" id="view-posts"><a href="#" onclick="UI.render('posts'); return false;">Status</a></li>
+                    <li class="menu pull-right" id="view-photos"><a href="#" onclick="UI.render('photos'); return false;">Photos<sup style="font-size: 12px; color: #ccc;">&nbsp;&beta;</sup></a></li>
+                </ul>
+
+                <div id="main-ui"></div>
+                <div id="signal-ui" style="padding: 1em 4.5em;"></div>
+            </div>
+        </div>
+        <div style="clear: both;">
     </body>
 
     <script type="text/javascript">
@@ -60,23 +66,32 @@
                 done: 0,
                 map: {},
                 processing: false,
+                //partition: new Date((new Date()).getFullYear()+'-01-01').getTime()/1000,
 
                 query: {
-                    stream: 'select description, message, type, source_id, post_id, action_links from stream where source_id in (select uid2 from friend where uid1=me()) order by created_time desc limit 150',
+                    //stream: 'select description, message, type, source_id, post_id, action_links from stream where source_id in (select uid2 from friend where uid1=me()) order by created_time desc limit 150',
                     status: { 
                         start: 'select message, status_id, uid, time from status where uid in (select uid2 from friend where uid1=me() and not ( uid2 in (',
                         end: '))) order by time desc limit 15 offset '
                     },
                     photo: {
-                        start: 'select object_id, caption, link, src, src_big, owner, created from photo where owner in (select uid2 from friend where uid1=me() and not ( uid2 in (',
+                        start: 'select object_id, caption, link, src, src_big, owner, created from photo where owner in (select uid2 from friend where uid1=me() and not (uid2 in (',
                         end: '))) order by created desc limit 15 offset ',
                     },
                     pages: {
-                        start: 'SELECT post_id, actor_id, target_id, message, created_time FROM stream WHERE filter_key in (SELECT filter_key FROM stream_filter WHERE uid = me() AND type = "application") and not (actor_id in (',
+                        start: 'SELECT post_id, actor_id, target_id, message, created_time, type, attachment FROM stream WHERE filter_key in (SELECT filter_key FROM stream_filter WHERE uid = me() AND type = "application") and not (actor_id in (',
+                        end: ')) order by created_time desc limit 15 offset '
+                    },
+                    /*photos: {
+                        start: 'SELECT post_id, actor_id, target_id, message, created_time, attachment, type FROM stream WHERE filter_key in (SELECT filter_key FROM stream_filter WHERE uid = me() AND type = "newsfeed") and type = 247 and not (actor_id in (',
+                        end: ')) order by created_time desc limit 15 offset '
+                    },
+                    status_stream: {
+                        start: 'SELECT post_id, actor_id, target_id, message, created_time, attachment, type FROM stream WHERE filter_key in (SELECT filter_key FROM stream_filter WHERE uid = me() AND type = "newsfeed") and type = 46 and not (actor_id in (',
                         end: ')) order by created_time desc limit 15 offset '
                     },
                     link: 'select link_id, url, title, summary, owner from link where owner in (select uid2 from friend where uid1=me()) order by created_time desc limit 150',
-                    video: 'select vid, description, embed_html, link, title, owner from video where owner in (select uid2 from friend where uid1=me()) order by created_time desc limit 150'
+                    video: 'select vid, description, embed_html, link, title, owner from video where owner in (select uid2 from friend where uid1=me()) order by created_time desc limit 150'*/
                 },
 
                 process: function(next){
@@ -110,9 +125,14 @@
                 },
 
                 render: function(type){
-                    var type = type || 'posts';
+                    var type = type || 'pages';
                     var that = this;
                     that.clean();
+
+                    document.cookie = 'type=' + type;
+
+                    $('.menu').removeClass('active');
+                    $('#view-'+type).addClass('active');
 
                     if(type == 'pages'){
                         var query = 'select page_id, name from page where page_id in (select page_id from page_fan where uid=me())'
@@ -142,13 +162,15 @@
                         //that.queue.reverse();
                         that.signal.html('');
                         if(type == 'posts'){
-                            that.posts(that.canvas);    
+                            that.posts(that.canvas);
+                            //that.stream(that.canvas, that.query.status_stream, 'Statuses');
                         }
                         else if(type == 'photos'){
                             that.photos(that.canvas);
+                            //that.stream(that.canvas, that.query.photos, 'Photos');
                         }
                         else if(type == 'pages'){
-                            that.pages(that.canvas);
+                            that.stream(that.canvas, that.query.pages, 'Posts');
                         }
                     });
                 },
@@ -186,7 +208,7 @@
                         query: that.query.photo.start + Object.keys(that.map).join(',') + that.query.photo.end + that.done
                     }, function(response){
                         that.signal.html('Processing Photos ...');
-                        console.log(response);
+                        //console.log(response);
 
                         for(var i in response){
                             var status = response[i];
@@ -222,7 +244,7 @@
                         query: that.query.status.start + Object.keys(that.map).join(',') + that.query.status.end + that.done
                     }, function(response){
                         that.signal.html('Processing Statuses ...');
-                        console.log(response);
+                        //console.log(response);
                         
                         for(var i in response){
                             var status = response[i];
@@ -246,17 +268,17 @@
                     });
                 },
 
-                pages: function(canvas){
+                stream: function(canvas, query, item){
                     var that = this;
                     that.scroll();
-                    that.signal.html('Getting Statuses ...');
+                    that.signal.html('Getting '+item+' ...');
                     that.processing = false;
 
                     FB.api({
                         method: 'fql.query',
-                        query: that.query.pages.start + Object.keys(that.map).join(',') + that.query.pages.end + that.done
+                        query: query.start + Object.keys(that.map).join(',') + query.end + that.done
                     }, function(response){
-                        that.signal.html('Processing Statuses ...');
+                        that.signal.html('Processing '+item+' ...');
                         console.log(response);
                         
                         for(var i in response){
@@ -265,7 +287,7 @@
                                 var f=that.friends[status.actor_id];
                                 that.map[status.actor_id] = 1;
                                 var d = new Date(Number(status.created_time)*1000);
-                                canvas.append('<div class="status" id="status-'+status.actor_id+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.actor_id+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+status.actor_id+'/" target="_blank"><strong>'+f.name+'</strong></a><div style="margin-bottom: 8px;">'+status.message.replace( /\n/g, '<br />')+'</div><div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
+                                canvas.append('<div class="status" id="status-'+status.actor_id+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.actor_id+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+status.actor_id+'/" target="_blank"><strong>'+f.name+'</strong></a>'+(status.type == 247 ? '<div style="margin-bottom: 8px;"><img src="https://graph.facebook.com/'+status.attachment.media[0].photo.fbid+'/picture?access_token='+FB.getAccessToken()+'" style="max-width: 100%; max-height: 25em;"/></div>' : '')+'<div style="margin-bottom: 8px;">'+status.message.replace( /\n/g, '<br />')+'</div><div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
                                 //console.log(that.friends[status.uid].name, status.message);
                             }
                         }
@@ -275,8 +297,8 @@
                         if(response.length){
                             that.scroll(function(){
                                 that.done += 15;
-                                that.pages(canvas);
-                            });    
+                                that.stream(canvas, query, item);
+                            });
                         }
                     });
                 }
@@ -285,15 +307,29 @@
 
             // init the FB JS SDK
             FB.init({
-                appId      : '289641444493947',
+                appId      : ( window.location.hostname == 'localhost' ) ? '289641444493947' : '565864393500012',
                 status     : true,
                 xfbml      : true
             });
 
             FB.Event.subscribe('auth.authResponseChange', function(response) {
                 if (response.status === 'connected') {
-                    testAPI(response);
-                    UI.render();
+                    //testAPI(response);
+                    var type = 'pages';
+                    if(document.cookie || false){
+                        //console.log(document.cookie);
+                        var all = document.cookie.split(';');
+                        var fin = [];
+                        for (var i in all){
+                            var parts = all[i].trim().split('=');
+                            if(parts[0] == 'type'){
+                                type = parts[1];
+                                break;
+                            }
+                        }
+                    }
+
+                    UI.render(type);
                 //} else if (response.status === 'not_authorized') {
                 //    FB.login(function(){}, {scope: 'email, user_about_me, user_friends'});
                 // FB.api({ method: 'Auth.revokeAuthorization' }
@@ -303,5 +339,15 @@
                 }
             });
         });
+    </script>
+
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-46927105-1', 'one-last.com');
+        ga('send', 'pageview');
     </script>
 </html>
