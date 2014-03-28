@@ -14,7 +14,7 @@
 
 <html>
     <head>
-        <title>one-last</title>
+        <title>facebook &mdash; one-last</title>
         <link rel='stylesheet', href='//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css' >
         <style type="text/css">
             .round {
@@ -22,37 +22,63 @@
                 -moz-border-radius: 1em;
                 -webkit-border-radius: 1em;
                 width: 2em;
+                word-wrap: break-word;
             }
             .status {
-                margin: 35px 0;
+                margin: 3em 0;
+            }
+
+            .body {
+                margin: auto;
+            }
+
+            .wrap {
+                padding: 0 15px;
             }
         </style>
         <script type='text/javascript' src='//code.jquery.com/jquery-1.10.2.min.js'></script>
         <script type='text/javascript' src='//netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js'></script>
         <script type='text/javascript' src='//connect.facebook.net/en_US/all.js'></script>
         <script type="text/javascript" src="//timeago.yarp.com/jquery.timeago.js"></script>
+        <script type="text/javascript" src="//vibhaj.com/ui/frontend.js/frontend.js"></script>
+        <script type="text/javascript">
+            $( document ).ready( function(){
+                window.fix_placeholder();
+
+                window.base_wide = 50;
+                window.base_divider = 40;
+                window.base_subpart = 30;
+                window.update_viewport();
+                $( window ).resize( window.update_viewport );
+            } );
+        </script>
     </head>
 
-    <body style="min-width: 960px">
-        <div class="pull-right" style="width: 250px; margin-top: 25px;">
-            <div><fb:login-button autologoutlink="true" show-faces="true" width="200" max-rows="1" perms="email,read_stream,user_about_me,user_friends,user_likes,friends_status,friends_photos"></fb:login-button></div>
-        </div>
-        <div class="pull-left" style="margin-left: 8%; min-width: 600px;">
-            <div id="fb-root"></div>
-            <h1><a href="" style="color: black"><strong>one-last</strong></a></h1>
+    <body>
+        <div id="fb-root"></div>
+        
+        <div style="border-bottom: solid 1px #ddd; background-color: #efefef; padding-top: 0.5em">
+            <div class="body"><div class="wrap">
+                <div><a href="" style="color: black; font-size: 3em;"><strong>one-last</strong></a><div class="pull-right" style="margin-top: 1.2em; text-align: right;">
+                    <div><fb:login-button autologoutlink="true" show-faces="false" width="150" max-rows="0" perms="email,read_stream,user_about_me,user_friends,user_likes,friends_status,friends_photos"></fb:login-button></div>
+                </div></div>
+                <div style="font-size: 0.8em; font-style: italic; margin-top: -0.8em;">Enjoy staying updated by following just one last post.</div>
 
-            <div style="width: 600px; margin-top: 25px;">
-                <ul class="nav nav-tabs" style="margin-bottom: 25px;">
-                    <li class="menu" id="view-pages"><a href="#" onclick="UI.render('pages'); return false;">Pages</a></li>
-                    <li class="menu" id="view-posts"><a href="#" onclick="UI.render('posts'); return false;">Status</a></li>
-                    <li class="menu pull-right" id="view-photos"><a href="#" onclick="UI.render('photos'); return false;">Photos<sup style="font-size: 12px; color: #ccc;">&nbsp;&beta;</sup></a></li>
-                </ul>
-
-                <div id="main-ui"></div>
-                <div id="signal-ui" style="padding: 1em 4.5em;"></div>
-            </div>
+                <div style="margin-top: 1em; margin-bottom: -1px;">
+                    <ul class="nav nav-tabs">
+                        <li class="menu" id="view-pages"><a href="#" onclick="UI.render('pages'); return false;">Pages</a></li>
+                        <li class="menu" id="view-posts"><a href="#" onclick="UI.render('posts'); return false;">Status</a></li>
+                        <li class="menu" id="view-photos"><a href="#" onclick="UI.render('photos'); return false;">Photos<!--<sup style="font-size: 12px; color: #ccc;">&nbsp;&beta;</sup>--></a></li>
+                    </ul>
+                </div>
+                <div style="clear: both;"></div>
+            </div></div>
         </div>
-        <div style="clear: both;">
+
+        <div class="body"><div class="wrap">
+            <div id="main-ui"></div>
+            <div id="signal-ui" style="padding: 1em 4.5em;"></div>
+        </div></div>
     </body>
 
     <script type="text/javascript">
@@ -66,21 +92,28 @@
                 done: 0,
                 map: {},
                 processing: false,
+                now: Math.round(new Date().getTime()/1000),
                 //partition: new Date((new Date()).getFullYear()+'-01-01').getTime()/1000,
 
                 query: {
                     //stream: 'select description, message, type, source_id, post_id, action_links from stream where source_id in (select uid2 from friend where uid1=me()) order by created_time desc limit 150',
                     status: { 
                         start: 'select message, status_id, uid, time from status where uid in (select uid2 from friend where uid1=me() and not ( uid2 in (',
-                        end: '))) order by time desc limit 15 offset '
+                        mid: '))) and time < ',
+                        end: ' order by time desc limit 15',
+                        time: 'time'
                     },
                     photo: {
                         start: 'select object_id, caption, link, src, src_big, owner, created from photo where owner in (select uid2 from friend where uid1=me() and not (uid2 in (',
-                        end: '))) order by created desc limit 15 offset ',
+                        mid: '))) and created < ',
+                        end: ' order by created desc limit 15',
+                        time: 'created'
                     },
                     pages: {
                         start: 'SELECT post_id, actor_id, target_id, message, created_time, type, attachment FROM stream WHERE filter_key in (SELECT filter_key FROM stream_filter WHERE uid = me() AND type = "application") and not (actor_id in (',
-                        end: ')) order by created_time desc limit 15 offset '
+                        mid: ')) and created_time < ',
+                        end: ' order by created_time desc limit 15',
+                        time: 'created_time'
                     },
                     /*photos: {
                         start: 'SELECT post_id, actor_id, target_id, message, created_time, attachment, type FROM stream WHERE filter_key in (SELECT filter_key FROM stream_filter WHERE uid = me() AND type = "newsfeed") and type = 247 and not (actor_id in (',
@@ -121,6 +154,7 @@
                     this.done = 0;
                     this.map = {};
                     this.processing = false;
+                    this.now = Math.round(new Date().getTime()/1000);
                     this.canvas.html('');
                 },
 
@@ -184,13 +218,13 @@
                             if ( that.processing || false )
                                 return false;
 
-                            if ( $( window ).scrollTop() >= $( document ).height() - $( window ).height() - 500 ){
+                            if ( $( window ).scrollTop() >= $( document ).height() - $( window ).height() - 5000 ){
                                 that.processing = true;
                                 callback();
                             }
                         } );
 
-                        if ( $( window ).scrollTop() >= $( document ).height() - $( window ).height() - 500 ){
+                        if ( $( window ).scrollTop() >= $( document ).height() - $( window ).height() - 5000 ){
                             that.processing = true;
                             callback();
                         }
@@ -205,7 +239,7 @@
 
                     FB.api({
                         method: 'fql.query',
-                        query: that.query.photo.start + Object.keys(that.map).join(',') + that.query.photo.end + that.done
+                        query: that.query.photo.start + Object.keys(that.map).join(',') + that.query.photo.mid + that.now + that.query.photo.end
                     }, function(response){
                         that.signal.html('Processing Photos ...');
                         //console.log(response);
@@ -217,9 +251,10 @@
                                 that.map[status.owner] = 1;
                                 var d = new Date(Number(status.created)*1000);
 
-                                canvas.append('<div class="status" id="photo-'+status.object_id+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.owner+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+f.username+'/" target="_blank"><strong>'+f.name+'</strong></a><div style="margin-bottom: 8px;"><img src="'+status.src_big+'" style="max-width: 100%; max-height: 25em;"/></div>'+((status.caption && status.caption.length < 250) ? '<div style="margin-bottom: 8px;">'+status.caption+'</div>' : '')+'<div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
+                                canvas.append('<div class="status" id="photo-'+status.object_id+'"><div class="pull-left"><img src="//graph.facebook.com/'+status.owner+'/picture" style="font-size: 2em; width: 2em;"></div><div style="margin-left: 5em; word-wrap: break-word;"><a href="//facebook.com/'+f.username+'/" target="_blank"><strong>'+f.name+'</strong></a><div style="margin-bottom: 0.6em;"><img src="'+status.src_big+'" style="max-width: 100%; max-height: 25em;"/></div>'+((status.caption && status.caption.length < 250) ? '<div style="margin-bottom: 0.6em;">'+status.caption+'</div>' : '')+'<div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
                                 //console.log(that.friends[status.uid].name, status.message);   
                             }
+                            that.now = status[ that.query.photo.time ];
                         }
 
                         that.signal.html('');
@@ -241,7 +276,7 @@
 
                     FB.api({
                         method: 'fql.query',
-                        query: that.query.status.start + Object.keys(that.map).join(',') + that.query.status.end + that.done
+                        query: that.query.status.start + Object.keys(that.map).join(',') + that.query.status.mid + that.now + that.query.status.end
                     }, function(response){
                         that.signal.html('Processing Statuses ...');
                         //console.log(response);
@@ -252,9 +287,10 @@
                                 var f=that.friends[status.uid];
                                 that.map[status.uid] = 1;
                                 var d = new Date(Number(status.time)*1000);
-                                canvas.append('<div class="status" id="status-'+status.uid+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.uid+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+f.username+'/" target="_blank"><strong>'+f.name+'</strong></a><div style="margin-bottom: 8px;">'+status.message.replace( /\n/g, '<br />')+'</div><div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
+                                canvas.append('<div class="status" id="status-'+status.uid+'"><div class="pull-left"><img src="//graph.facebook.com/'+status.uid+'/picture" style="font-size: 2em; width: 2em;"></div><div style="margin-left: 5em; word-wrap: break-word;"><a href="//facebook.com/'+f.username+'/" target="_blank"><strong>'+f.name+'</strong></a><div style="margin-bottom: 0.6em;">'+status.message.replace( /\n/g, '<br />')+'</div><div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
                                 //console.log(that.friends[status.uid].name, status.message);
                             }
+                            that.now = status[ that.query.status.time ];
                         }
 
                         that.signal.html('');
@@ -276,7 +312,7 @@
 
                     FB.api({
                         method: 'fql.query',
-                        query: query.start + Object.keys(that.map).join(',') + query.end + that.done
+                        query: query.start + Object.keys(that.map).join(',') + query.mid + that.now + query.end
                     }, function(response){
                         that.signal.html('Processing '+item+' ...');
                         console.log(response);
@@ -287,9 +323,10 @@
                                 var f=that.friends[status.actor_id];
                                 that.map[status.actor_id] = 1;
                                 var d = new Date(Number(status.created_time)*1000);
-                                canvas.append('<div class="status" id="status-'+status.actor_id+'"><div class="pull-left" style="font-size: 2em; width: 2em;"><img src="//graph.facebook.com/'+status.actor_id+'/picture"></div><div style="margin-left: 4.5em;"><a href="//facebook.com/'+status.actor_id+'/" target="_blank"><strong>'+f.name+'</strong></a>'+(status.type == 247 ? '<div style="margin-bottom: 8px;"><img src="https://graph.facebook.com/'+status.attachment.media[0].photo.fbid+'/picture?access_token='+FB.getAccessToken()+'" style="max-width: 100%; max-height: 25em;"/></div>' : '')+'<div style="margin-bottom: 8px;">'+status.message.replace( /\n/g, '<br />')+'</div><div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
+                                canvas.append('<div class="status" id="status-'+status.actor_id+'"><div class="pull-left"><img src="//graph.facebook.com/'+status.actor_id+'/picture" style="font-size: 2em; width: 2em;"></div><div style="margin-left: 5em; word-wrap: break-word;"><a href="//facebook.com/'+status.actor_id+'/" target="_blank"><strong>'+f.name+'</strong></a>'+(status.type == 247 ? '<div style="margin-bottom: 0.6em;"><img src="https://graph.facebook.com/'+status.attachment.media[0].photo.fbid+'/picture?access_token='+FB.getAccessToken()+'" style="max-width: 100%; max-height: 25em;"/></div>' : '')+'<div style="margin-bottom: 0.6em;">'+status.message.replace( /\n/g, '<br />')+'</div><div style="color: #999; font-size: 0.8em;">'+$.timeago(d)+'</div></div><div style="clear: both;"></div></div>');
                                 //console.log(that.friends[status.uid].name, status.message);
                             }
+                            that.now = status[ query.time ];
                         }
 
                         that.signal.html('');
